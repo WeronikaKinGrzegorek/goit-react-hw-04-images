@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 import Searchbar from './searchbar/Searchbar';
@@ -10,19 +10,17 @@ import Loader from './loader/Loader';
 import css from './app.module.css';
 
 const baseURL = 'https://pixabay.com/api/';
-export class App extends Component {
-  state = {
-    images: [],
-    isLoading: false,
-    error: '',
-    currentPage: 1,
-    query: '',
-    hasMore: true,
-    largeImageUrl: null,
-  };
+export const App = () => {
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [largeImageUrl, setLargeImageUrl] = useState(null);
 
-  getImages = async (query, page) => {
-    this.setState({ isLoading: true });
+  const getImages = async (query, page) => {
+    setIsLoading(true);
 
     try {
       const response = await axios.get(`${baseURL}`, {
@@ -35,55 +33,53 @@ export class App extends Component {
           per_page: 12,
         },
       });
-      this.setState(prevState => ({
-        images: [...prevState.images, ...response.data.hits],
-        isLoading: false,
-        hasMore: response.data.hits.length > 0,
-      }));
+      setImages(prevImages => [...prevImages, ...response.data.hits]);
+      setIsLoading(false);
+      setHasMore(response.data.hits.length > 0);
     } catch (error) {
-      this.setState({ isLoading: false });
-      console.error('Error fetching images:', error);
+      setIsLoading(false);
+      setError('Error fetching images');
     }
   };
 
-  handleSubmit = inputValue => {
-    this.setState({ query: inputValue, page: 1, images: [] }, () => {
-      this.getImages(inputValue, this.state.page);
-    });
+  const handleSubmit = inputValue => {
+    setQuery(inputValue);
+    setCurrentPage(1);
+    setImages([]);
   };
 
-  loadMoreImages = () => {
-    const nextPage = this.state.page + 1;
-    this.setState({ page: nextPage }, () => {
-      this.getImages(this.state.query, nextPage);
-    });
+  const loadMoreImages = () => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
   };
 
-  openModal = largeImageUrl => {
-    this.setState({ largeImageUrl });
+  const openModal = largeImageUrl => {
+    setLargeImageUrl(largeImageUrl);
   };
 
-  closeModal = () => {
-    this.setState({ largeImageUrl: null });
+  const closeModal = () => {
+    setLargeImageUrl(null);
   };
 
-  componentDidMount() {
-    this.getImages('cat', 1);
-  }
+  useEffect(() => {
+    getImages('cat', 1);
+  }, []);
 
-  render() {
-    const { images, isLoading, hasMore, largeImageUrl } = this.state;
+  useEffect(() => {
+    if (query) {
+      getImages(query, currentPage);
+    }
+  }, [query, currentPage]);
 
-    return (
-      <div className={css.app}>
-        <Searchbar onSubmit={this.handleSubmit} />
-        <ImageGallery images={images} onImageClick={this.openModal} />
-        {isLoading && <Loader />}
-        <Button onClick={this.loadMoreImages} hasMore={hasMore} />
-        {largeImageUrl && (
-          <Modal largeImageUrl={largeImageUrl} onClose={this.closeModal} />
-        )}
-      </div>
-    );
-  }
-}
+  return (
+    <div className={css.app}>
+      <Searchbar onSubmit={handleSubmit} />
+      <ImageGallery images={images} onImageClick={openModal} />
+      {isLoading && <Loader />}
+      <Button onClick={loadMoreImages} hasMore={hasMore} />
+      {largeImageUrl && (
+        <Modal largeImageUrl={largeImageUrl} onClose={closeModal} />
+      )}
+    </div>
+  );
+};
